@@ -53,6 +53,10 @@ static NSString * const kWakeupPluginAlarmSettingsFile = @"alarmsettings.plist";
     [UIDevice currentDevice].batteryMonitoringEnabled=YES; // required to determine if device is charging
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wup_onBatteryStateDidChange:) name:UIDeviceBatteryStateDidChangeNotification object:nil];
     [self wup_onBatteryStateDidChange:nil];
+
+    UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
+    UIUserNotificationSettings *notificationSettings = [UIUserNotificationSettings settingsForTypes:types categories:nil];
+    [[UIApplication sharedApplication] registerUserNotificationSettings:notificationSettings];
     
     NSLog(@"Wakeup Plugin initialized");
 }

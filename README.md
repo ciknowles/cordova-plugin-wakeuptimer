@@ -18,7 +18,7 @@ This plugin is meant to work with Cordova 3.5.0+.
 
 2. Install this plugin using PhoneGap/Cordova cli:
 
-        cordova plugin add https://github.com/wnyc/cordova-plugin-wakeuptimer.git
+        cordova plugin add https://github.com/jainmohit1985/cordova-plugin-wakeuptimer.git
 
 ## Usage
 
