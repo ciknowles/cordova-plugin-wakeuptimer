@@ -23,6 +23,8 @@ import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.res.Resources;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
@@ -32,11 +34,15 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
+import to.laddr.darthema.R;
+
 public class WakeupPlugin extends CordovaPlugin {
 
 	protected static final String LOG_TAG = "WakeupPlugin";
 
-	private MediaPlayer mMediaPlayer = null;
+	private static MediaPlayer mMediaPlayer = null;
+
+	private static boolean isSystemSound = true;
 
 	protected static final int ID_DAYLIST_OFFSET = 10010;
 	protected static final int ID_ONETIME_OFFSET = 100000;
@@ -63,30 +69,105 @@ public class WakeupPlugin extends CordovaPlugin {
         // app startup
         Log.d(LOG_TAG, "Wakeup Plugin onReset");
         Bundle extras = cordova.getActivity().getIntent().getExtras();
+		stopSound(cordova.getActivity().getApplicationContext());
+
         if (extras!=null && !extras.getBoolean("wakeup", false)) {
         	setAlarmsFromPrefs( cordova.getActivity().getApplicationContext() );
         }
         super.onReset();
     }
 
-	public static MediaPlayer playSound(Context context, Uri alert) {
-		MediaPlayer	mMediaPlayer = new MediaPlayer();
-		try {
-			mMediaPlayer.setDataSource(context, alert);
-			final AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-			if (audioManager.getStreamVolume(AudioManager.STREAM_ALARM) != 0) {
-				mMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
-				mMediaPlayer.prepare();
-				mMediaPlayer.start();
-			}
-		} catch (IOException e) {
-			System.out.println("OOPS");
-		}
+	@Override
+	public void onResume(boolean multitasking) {
+		Log.d(LOG_TAG, "Wakeup Plugin onResume");
+		stopSound(cordova.getActivity().getApplicationContext());
+		super.onResume(multitasking);
+	}
 
-		return mMediaPlayer;
+	public static MediaPlayer playSound(Context context, Uri alert) {
+		final AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+		final int volume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+		Log.d(LOG_TAG, "alarm volume..." + volume);
+
+		if (volume != 0) {
+			if (mMediaPlayer != null)
+			{
+				mMediaPlayer = null;
+			}
+			isSystemSound = true;
+			mMediaPlayer = MediaPlayer.create(context, alert);
+			mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+				public void onPrepared(MediaPlayer mp){
+					mp.setVolume(volume, volume);
+					mp.setLooping(false);
+					mp.start();
+				};
+			});
+
+			return mMediaPlayer;
+		}
+		else
+		{
+			return null;
+		}
+	}
+
+	public static MediaPlayer playSound(Context context, int alert) {
+		final AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+		final int volume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+		Log.d(LOG_TAG, "alarm volume..." + volume);
+
+		if (volume != 0) {
+			if (mMediaPlayer != null)
+			{
+				mMediaPlayer = null;
+			}
+			isSystemSound = false;
+			mMediaPlayer = MediaPlayer.create(context, alert);
+			mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+				public void onPrepared(MediaPlayer mp){
+					mp.setVolume(volume, volume);
+					mp.setLooping(false);
+					mp.start();
+				};
+			});
+
+			return mMediaPlayer;
+		}
+		else
+		{
+			return null;
+		}
 	}
 
 	private void stopSound(Context context) {
+		stopSound();
+	}
+
+	private void stopSound() {
+		if (mMediaPlayer == null)
+		{
+			return;
+		}
+
+		if (mMediaPlayer.isPlaying())
+		{
+			if (mMediaPlayer.getCurrentPosition() < (mMediaPlayer.getDuration()-250))
+			{
+				if (Build.VERSION.SDK_INT<24 || !isSystemSound)
+				{
+					Log.d(LOG_TAG, "seeking to... " + (mMediaPlayer.getDuration()-250));
+					mMediaPlayer.seekTo((mMediaPlayer.getDuration()-250));
+
+					return;
+				}
+			}
+		}
+
+		stopAndReleaseSound();
+	}
+
+	public static void stopAndReleaseSound() {
 		if (mMediaPlayer == null)
 		{
 			return;
@@ -96,24 +177,31 @@ public class WakeupPlugin extends CordovaPlugin {
 		mMediaPlayer.release();
 		mMediaPlayer = null;
 	}
-	//Get an alarm sound. Try for an alarm. If none set, try notification,
-	//Otherwise, ringtone.
-	//public static Uri getAlarmUri(Uri alert) {
-	public static Uri getAlarmUri() {
-		//if (alert.equals(""))
-		//{
-			Uri alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-			if (alert == null) {
-				alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-				if (alert == null) {
-					alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-				}
-			};
-		//}
 
-		Log.d(LOG_TAG, "playing alarm audio..." + alert.toString());
+	//Get an alarm sound. Try for an alarm. If none set, try notification, Otherwise, ringtone.
+	public static Uri getAlarmUri() {
+		Uri alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+
+		if (alert == null) {
+			alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+		};
+
+		if (alert == null) {
+			alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+		}
+
 		return alert;
-	}
+	};
+
+	public static int getAlarmUri(Context context, String alert) {
+		int alertId = 0;
+		if (!alert.isEmpty())
+		{
+			alertId = context.getResources().getIdentifier(alert,"raw", context.getPackageName());
+		}
+
+		return alertId;
+	};
 
 	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -128,14 +216,14 @@ public class WakeupPlugin extends CordovaPlugin {
 				} else {
 					alarms = new JSONArray(); // default to empty array
 				}
-				
+
 				saveToPrefs(cordova.getActivity().getApplicationContext(), alarms);
 				setAlarms(cordova.getActivity().getApplicationContext(), alarms, true);
 
 				WakeupPlugin.connectionCallbackContext = callbackContext;
 				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
 				pluginResult.setKeepCallback(true);
-				callbackContext.sendPluginResult(pluginResult);  
+				callbackContext.sendPluginResult(pluginResult);
 			}else if(action.equalsIgnoreCase("snooze")) {
 				JSONObject options=args.getJSONObject(0);
 				if (options.has("alarms")==true) {
@@ -147,7 +235,7 @@ public class WakeupPlugin extends CordovaPlugin {
 				WakeupPlugin.connectionCallbackContext = callbackContext;
 				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
 				pluginResult.setKeepCallback(true);
-				callbackContext.sendPluginResult(pluginResult);  
+				callbackContext.sendPluginResult(pluginResult);
 			}else if(action.equalsIgnoreCase("cancelAlarm")) {
 				cancelAlarms(cordova.getActivity().getApplicationContext(), args);
 
@@ -168,48 +256,58 @@ public class WakeupPlugin extends CordovaPlugin {
 				stopSound(cordova.getActivity().getApplicationContext());
 
 				WakeupPlugin.connectionCallbackContext = callbackContext;
-				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
+				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, getLaunchDetails("stopSound"));
 				pluginResult.setKeepCallback(true);
 				callbackContext.sendPluginResult(pluginResult);
 			}else if(action.equalsIgnoreCase("getLaunchDetails")) {
-				Bundle extrasBundle = cordova.getActivity().getIntent().getExtras();
-
-				String extras=null;
-				if (extrasBundle!=null && extrasBundle.get("extra")!=null) {
-					extras = extrasBundle.get("extra").toString();
-				}
-
-				JSONObject o=new JSONObject();
-				o.put("type", "launchDetails");
-				if (extras!=null) {
-					o.put("extra", extras);
-				}
-				o.put("cdvStartInBackground", true);
-
 				WakeupPlugin.connectionCallbackContext = callbackContext;
-				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, o);
+				PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, getLaunchDetails("launchDetails"));
 				pluginResult.setKeepCallback(true);
 				callbackContext.sendPluginResult(pluginResult);
 			}
 			else{
 				PluginResult pluginResult = new PluginResult(PluginResult.Status.ERROR, LOG_TAG + " error: invalid action (" + action + ")");
 				pluginResult.setKeepCallback(true);
-				callbackContext.sendPluginResult(pluginResult);  
+				callbackContext.sendPluginResult(pluginResult);
 				ret=false;
 			}
 		} catch (JSONException e) {
 			PluginResult pluginResult = new PluginResult(PluginResult.Status.ERROR, LOG_TAG + " error: invalid json");
 			pluginResult.setKeepCallback(true);
-			callbackContext.sendPluginResult(pluginResult);  
+			callbackContext.sendPluginResult(pluginResult);
 			ret = false;
 		} catch (Exception e) {
 			PluginResult pluginResult = new PluginResult(PluginResult.Status.ERROR, LOG_TAG + " error: " + e.getMessage());
 			pluginResult.setKeepCallback(true);
-			callbackContext.sendPluginResult(pluginResult);  
+			callbackContext.sendPluginResult(pluginResult);
 			ret = false;
 		}
 		return ret;
 	}
+
+	private JSONObject getLaunchDetails(String type){
+		JSONObject o = new JSONObject();
+	try {
+		Bundle extrasBundle = cordova.getActivity().getIntent().getExtras();
+
+		String extras = null;
+		if (extrasBundle!=null && extrasBundle.get("extra")!=null) {
+			extras = extrasBundle.get("extra").toString();
+		}
+
+		type = type.isEmpty() ? "launchDetails" : type;
+
+		o.put("type", type);
+		if (extras!=null) {
+			o.put("extra", extras);
+		}
+		o.put("cdvStartInBackground", true);
+	} catch (JSONException e) {
+		e.printStackTrace();
+	}
+		return o;
+	}
+
 
   public static void setAlarmsFromPrefs(Context context) {
     try {
@@ -243,7 +341,7 @@ public class WakeupPlugin extends CordovaPlugin {
 			if (alarm.has("type")){
 				type = alarm.getString("type");
 			}
-			
+
 			if (!alarm.has("time")){
 				throw new JSONException("alarm missing time: " + alarm.toString());
 			}
@@ -262,6 +360,11 @@ public class WakeupPlugin extends CordovaPlugin {
 				}
 
 				Intent intent = new Intent(context, WakeupReceiver.class);
+
+				if(alarm.has("sound")){
+					intent.putExtra("sound", alarm.getString("sound"));
+				}
+
 				if(alarm.has("extra")){
 					intent.putExtra("extra", alarm.getJSONObject("extra").toString());
 					intent.putExtra("type", type);
@@ -301,7 +404,7 @@ public class WakeupPlugin extends CordovaPlugin {
 						intent.putExtra("playSound", alarm.optBoolean("playSound", false));
 						intent.putExtra("startInBackground", alarm.optBoolean("startInBackground", true));
 					}
-					
+
 					setNotification(context, type, alarmDate, intent, ID_DAYLIST_OFFSET + daysOfWeek.get(days.getString(j)));
 				}
 			} else if ( type.equals("snooze") ) {

@@ -164,7 +164,22 @@ public class WakeupReceiver extends BroadcastReceiver {
 		if (extrasBundle != null && extrasBundle.get("playSoundOnly") != null) {
 			if (extrasBundle.get("playSoundOnly").equals(true)) {
 				Log.d(LOG_TAG, "playing sound only.");
-				WakeupPlugin.playSound(context, WakeupPlugin.getAlarmUri());
+				MediaPlayer mMediaPlayer = WakeupPlugin.playSound(context, WakeupPlugin.getAlarmUri());
+				if (mMediaPlayer != null)
+				{
+					mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+						public void onCompletion(MediaPlayer mp){
+							WakeupPlugin.stopAndReleaseSound();
+						};
+					});
+
+					mMediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+						public boolean onError(MediaPlayer mp, int var2, int var3){
+							WakeupPlugin.stopAndReleaseSound();
+							return false;
+						};
+					});
+				}
 				return;
 			}
 		}
@@ -172,21 +187,48 @@ public class WakeupReceiver extends BroadcastReceiver {
 		if (extrasBundle != null && extrasBundle.get("playSound") != null) {
 			if (extrasBundle.get("playSound").equals(true)) {
 				Log.d(LOG_TAG, "playing sound.");
-				MediaPlayer mMediaPlayer = WakeupPlugin.playSound(context, WakeupPlugin.getAlarmUri());
-				mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-					public void onCompletion(MediaPlayer mp){
-						performAlarm(context, intent);
-					};
-				});
 
-				mMediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-					public boolean onError(MediaPlayer var1, int var2, int var3){
-						performAlarm(context, intent);
-						return false;
-					};
-				});
+				MediaPlayer mMediaPlayer = null;
 
-				return;
+				String sound = extrasBundle.getString("sound", "");
+				Log.d(LOG_TAG, "sound " + sound);
+				if (!sound.isEmpty())
+				{
+					int soundId = WakeupPlugin.getAlarmUri(context, sound);
+					Log.d(LOG_TAG, "soundId " + soundId);
+					if (soundId != 0)
+					{
+						mMediaPlayer = WakeupPlugin.playSound(context, soundId);
+					}
+				}
+
+				if (mMediaPlayer == null)
+				{
+					mMediaPlayer = WakeupPlugin.playSound(context, WakeupPlugin.getAlarmUri());
+				}
+
+				if (mMediaPlayer != null)
+				{
+					Log.d(LOG_TAG, "in media player condition");
+					Log.d(LOG_TAG, "sound duration... " + mMediaPlayer.getDuration());
+					mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+						public void onCompletion(MediaPlayer mp){
+							Log.d(LOG_TAG, "in on complete");
+							WakeupPlugin.stopAndReleaseSound();
+							performAlarm(context, intent);
+						};
+					});
+
+					mMediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+						public boolean onError(MediaPlayer mp, int var2, int var3){
+							WakeupPlugin.stopAndReleaseSound();
+							performAlarm(context, intent);
+							return false;
+						};
+					});
+
+					return;
+				}
 			}
 		}
 
