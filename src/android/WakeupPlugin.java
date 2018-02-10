@@ -308,14 +308,25 @@ public class WakeupPlugin extends CordovaPlugin {
 		return o;
 	}
 
+	public static JSONArray getAlarmsFromPref(Context context){
+		JSONArray arr = new JSONArray();
+
+		try {
+			SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+			String a = prefs.getString("alarms", "[]");
+			arr = new JSONArray(a);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+
+		return arr;
+	}
+
 
   public static void setAlarmsFromPrefs(Context context) {
     try {
-      SharedPreferences prefs;
-      prefs = PreferenceManager.getDefaultSharedPreferences(context);
-      String a = prefs.getString("alarms", "[]");
-      Log.d(LOG_TAG, "setting alarms:\n" + a);
-      JSONArray alarms = new JSONArray( a );
+      JSONArray alarms = getAlarmsFromPref(context);
+      Log.d(LOG_TAG, "setting alarms:\n" + alarms.toString());
       WakeupPlugin.setAlarms(context, alarms, true);
     } catch (JSONException e) {
       e.printStackTrace();
@@ -505,6 +516,38 @@ public class WakeupPlugin extends CordovaPlugin {
 		try {
 			for (int i=0;i<ids.length();i++){
 				cancelAlarm(context, ids.getInt(i));
+			}
+			removeCancelledAlarmsFromPref(context, ids);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+	}
+
+	protected static void removeCancelledAlarmsFromPref(Context context, JSONArray ids)
+	{
+		JSONArray oldAlarms = getAlarmsFromPref(context);
+		JSONArray newAlarms = new JSONArray();
+		try {
+			Boolean matched = false;
+			Log.d(LOG_TAG, "oldAlarms length..." + oldAlarms.length());
+			for(int i=0;i<oldAlarms.length();i++) {
+				JSONObject alarm = oldAlarms.getJSONObject(i);
+				matched = false;
+				for(int j=0;j<ids.length();j++) {
+					if (alarm.getInt("id") == ids.getInt(j))
+					{
+						matched = true;
+					}
+				}
+				if (!matched)
+				{
+					newAlarms.put(alarm);
+				}
+			}
+			Log.d(LOG_TAG, "newAlarms length..." + newAlarms.length());
+			if (oldAlarms.length() != newAlarms.length())
+			{
+				saveToPrefs(context, newAlarms);
 			}
 		} catch (JSONException e) {
 			e.printStackTrace();
