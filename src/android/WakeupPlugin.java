@@ -34,8 +34,6 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
-import to.laddr.darthema.R;
-
 public class WakeupPlugin extends CordovaPlugin {
 
 	protected static final String LOG_TAG = "WakeupPlugin";
