@@ -106,9 +106,24 @@ public class WakeupReceiver extends BroadcastReceiver {
 
 				PendingIntent sender = PendingIntent.getBroadcast(context, 19999 + WakeupPlugin.daysOfWeek.get(extrasBundle.get("day")), intent, PendingIntent.FLAG_UPDATE_CURRENT);
 				AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-				if (Build.VERSION.SDK_INT>=19) {
-					alarmManager.setExact(AlarmManager.RTC_WAKEUP, next.getTime(), sender);
-				} else {
+
+				//Code added for doze or app stand by mode
+				if (Build.VERSION.SDK_INT>=19) 
+				{
+					if (Build.VERSION.SDK_INT>=23) 
+					{
+						alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTime(), sender);
+					} else 
+					{
+						//Below code commented as it was not working for API22
+						//alarmManager.setExact(AlarmManager.RTC_WAKEUP, next.getTime(), sender);
+						
+						//Code is working for API22
+						AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(next.getTime(), null);
+						alarmManager.setAlarmClock(info, sender);
+					}
+				} else 
+				{
 					alarmManager.set(AlarmManager.RTC_WAKEUP, next.getTime(), sender);
 				}
 			}

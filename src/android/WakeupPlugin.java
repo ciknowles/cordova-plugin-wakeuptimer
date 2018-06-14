@@ -469,8 +469,19 @@ public class WakeupPlugin extends CordovaPlugin {
 				SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				Log.d(LOG_TAG,"setting alarm at " + sdf.format(alarmDate.getTime()) + "; id " + id);
 
+				//Code added for doze or app stand by mode
 				if (Build.VERSION.SDK_INT>=19) {
-					alarmManager.setExact(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), sender);
+					if (Build.VERSION.SDK_INT>=23) {
+						alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), sender);
+					} else {
+						//Below code commented as it was not working for API22
+						//alarmManager.setExact(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), sender);
+						
+						//Code is working for API 22
+						AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(alarmDate.getTimeInMillis(), null);
+						alarmManager.setAlarmClock(info, sender);
+					}
+
 				} else {
 					alarmManager.set(AlarmManager.RTC_WAKEUP, alarmDate.getTimeInMillis(), sender);
 				}
