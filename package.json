@@ -1,15 +1,27 @@
 {
   "name": "org.nypr.cordova.wakeupplugin",
-  "version": "0.4.121",
-  "displayName": "WakeupTimer",
+  "version": "0.1.0",
+  "description": "Clipboard management plugin for Cordova/PhoneGap",
   "cordova": {
+    "id": "org.nypr.cordova.wakeupplugin",
     "platforms": [
       "android",
       "ios"
-    ],
-    "plugins": {}
+    ]
   },
-  "dependencies": {
-    "cordova-android": "^6.3.0"
-  }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ciknowles/cordova-plugin-wakeuptimer.git"
+  },
+  "keywords": [
+    "sleep",
+    "wakeup",
+    "timer"
+  ],
+  "author": "ciknowles",
+  "license": "Apache 2.0",
+  "bugs": {
+    "url": "https://github.com/ciknowles/cordova-plugin-wakeuptimer.git/issues"
+  },
+  "homepage": "https://github.com/ciknowles/cordova-plugin-wakeuptimer.git#readme"
 }
